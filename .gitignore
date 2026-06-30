@@ -1,8 +1,36 @@
-# 运行期产物，全部本地生成
+# 运行期产物，全部本地生成（内核 / UI / 规则集 / 下载缓存 / 订阅 / 配置）
 state/
 
-# Python
+# Python 字节码与缓存
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+
+# 测试 / 类型 / 覆盖率工具缓存
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 测试临时产物
+tests/.gen_check.json
+
+# 打包产物（本项目零依赖、免安装，一般不会出现）
+build/
+dist/
+*.egg-info/
+
+# 虚拟环境（本项目不使用，防御性忽略）
+.venv/
+venv/
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# 操作系统
+.DS_Store
+Thumbs.db
