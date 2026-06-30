@@ -91,7 +91,11 @@ def _subscriptions() -> None:
 
 
 def _sub_add() -> None:
-    name, url, stype, cust = common.ask_new_subscription()
+    info = common.ask_new_subscription()
+    if info is None:
+        shell.warn("订阅链接留空，已取消添加。")
+        return
+    name, url, stype, cust = info
     set_active = manager.get_active() is None or menu.confirm("设为生效订阅？", default=True)
     manager.add(name, url, stype, customize_flag=cust, set_active=set_active)
 

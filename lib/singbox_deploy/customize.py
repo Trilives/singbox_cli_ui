@@ -56,6 +56,7 @@ DEFAULTS: dict[str, Any] = {
     "route_exclude_ip_cidrs": ROUTE_EXCLUDE_IP_CIDRS,
     "bypass_process_names": BYPASS_PROCESS_NAMES,
     "tun_exclude_uids": [],
+    "enable_tun": True,
     "lan_panel": False,
     "lan_proxy": False,
     "bootstrap_dns_server": DEFAULT_BOOTSTRAP_DNS_SERVER,
@@ -95,6 +96,7 @@ class CustomConfig:
     generate_sg_groups: bool = False
     generate_hk_groups: bool = False
     default_outbound: str = "Proxy"
+    enable_tun: bool = True
 
 
 def to_custom_config(cfg: dict[str, Any]) -> CustomConfig:
@@ -117,6 +119,7 @@ def to_custom_config(cfg: dict[str, Any]) -> CustomConfig:
         generate_sg_groups=bool(g("generate_sg_groups")),
         generate_hk_groups=bool(g("generate_hk_groups")),
         default_outbound=str(g("default_outbound")),
+        enable_tun=bool(g("enable_tun")),
     )
 
 
@@ -168,6 +171,7 @@ _LIST_FIELDS = {
     "hk_prefer_keywords": "香港关键词",
 }
 _BOOL_FIELDS = {
+    "enable_tun": "TUN 模式（全局透明代理）",
     "lan_panel": "LAN 面板暴露",
     "lan_proxy": "局域网代理（其他主机可用本机代理）",
     "generate_sg_groups": "生成新加坡地区组",
@@ -312,22 +316,22 @@ def _edit_scalar(cfg: dict[str, Any], key: str, label: str) -> bool:
 def configure_enhancements() -> None:
     """交互询问是否启用增强配置；启用则配置地区组等。"""
     cfg = load()
-    if not menu.confirm("是否启用增强配置（地区分组 / AI·流媒体分流 / 直连进程等）？", default=False):
+    if not menu.confirm("是否启用增强配置（地区分组 / AI·流媒体分流 / 直连进程等）？", default=True):
         # 关闭地区组，保持通用配置
         cfg["generate_sg_groups"] = False
         cfg["generate_hk_groups"] = False
         save(cfg)
         return
     # 地区组
-    if menu.confirm("启用「新加坡」地区组（SG-Auto/SG-Fallback）？", default=False):
+    if menu.confirm("启用「新加坡」地区组（SG-Auto/SG-Fallback）？", default=True):
         cfg["generate_sg_groups"] = True
-        raw = menu.ask("新加坡匹配关键词（逗号分隔）", default=",".join(cfg.get("prefer_keywords", [])))
+        raw = menu.ask("新加坡匹配关键词（逗号分隔），留空=默认", default=",".join(cfg.get("prefer_keywords", [])))
         cfg["prefer_keywords"] = [t.strip() for t in raw.split(",") if t.strip()]
     else:
         cfg["generate_sg_groups"] = False
     if menu.confirm("启用「香港」地区组（HK-Auto/HK-Fallback）？", default=False):
         cfg["generate_hk_groups"] = True
-        raw = menu.ask("香港匹配关键词（逗号分隔）", default=",".join(cfg.get("hk_prefer_keywords", [])))
+        raw = menu.ask("香港匹配关键词（逗号分隔），留空=默认", default=",".join(cfg.get("hk_prefer_keywords", [])))
         cfg["hk_prefer_keywords"] = [t.strip() for t in raw.split(",") if t.strip()]
     else:
         cfg["generate_hk_groups"] = False

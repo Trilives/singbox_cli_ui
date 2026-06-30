@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 
 from . import shell
-from .flows import init, modify, uninstall
+from .flows import init, modify, nettest, uninstall
 from .menu import Cancelled, select
 
 def _update() -> None:
@@ -25,14 +25,15 @@ def _update() -> None:
 _FLOWS = {
     "init": init.run,
     "modify": modify.run,
+    "nettest": nettest.run,
     "uninstall": uninstall.run,
     "update": _update,
 }
 
 
 def _interactive() -> int:
-    options = ["初始化（首次部署）", "更改配置", "卸载所有服务"]
-    actions = [init.run, modify.run, uninstall.run]
+    options = ["初始化（首次部署）", "更改配置", "网络测试", "卸载所有服务"]
+    actions = [init.run, modify.run, nettest.run, uninstall.run]
     while True:
         try:
             idx = select("sing-box 部署系统", options, back_label="退出")

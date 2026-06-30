@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from .. import menu
 
 # 菜单顺序即推荐优先级：Clash 优先
@@ -29,15 +31,19 @@ def normalize_proxy(raw: str) -> str:
     return "http://" + p
 
 
-def ask_new_subscription() -> tuple[str, str, str, bool]:
+def ask_new_subscription() -> tuple[str, str, str, bool] | None:
     """交互收集新订阅信息：返回 (name, url, source_type, customize_flag)。
 
+    订阅链接留空 → 返回 None，表示"暂不配置订阅"（由上层决定结束初始化 / 取消添加）。
     任一步 ESC 抛 menu.Cancelled，由上层事务回退。
     """
-    name = menu.ask("订阅名称（便于以后切换）", allow_empty=False)
+    default_name = time.strftime("sub-%Y%m%d-%H%M%S")
+    name = menu.ask("订阅名称，留空=时间戳", default=default_name)
     idx = menu.select("选择订阅来源类型", _SOURCE_OPTIONS, allow_back=True)
     source_type = _SOURCE_TYPES[idx]
-    url = menu.ask("订阅链接", allow_empty=False)
+    url = menu.ask("订阅链接，留空=暂不配置", allow_empty=True)
+    if not url:
+        return None
 
     if source_type == "singbox":
         customize_flag = menu.confirm(

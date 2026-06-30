@@ -19,10 +19,15 @@ def run() -> None:
         # 1. 局域网下载代理（IP:端口，可留空）
         cfg = customize.load()
         proxy = menu.ask(
-            "局域网下载代理 IP:端口（如 192.168.1.10:7890，留空=直连）",
+            "下载代理 IP:端口（出海慢时走它，如 192.168.1.10:7890），留空=保留当前/无则直连",
             default=common.strip_scheme(str(cfg.get("download_proxy") or "")),
         )
         cfg["download_proxy"] = common.normalize_proxy(proxy)
+        # TUN 模式：全局透明代理（整机流量自动走代理）；关则纯代理，需各 App 自设代理
+        cfg["enable_tun"] = menu.confirm(
+            "启用 TUN 模式？（整机流量自动走代理；否=纯代理，需各 App 手动设代理）",
+            default=bool(cfg.get("enable_tun", True)),
+        )
         # 局域网代理：让局域网内其他主机把本机当作代理使用（放开 7890 监听到 0.0.0.0）
         cfg["lan_proxy"] = menu.confirm(
             "开启局域网代理？（让局域网其他主机可用本机作为代理，监听 0.0.0.0:7890）",
@@ -30,6 +35,14 @@ def run() -> None:
         )
         t.backup_file(paths.CUSTOMIZE_FILE)
         customize.save(cfg)
+
+        # TUN 关闭=纯代理：可选把代理变量写入 bashrc，免去逐程序设代理
+        if not cfg["enable_tun"] and menu.confirm(
+            "把代理环境变量写入 ~/.bashrc？（新开终端自动走 127.0.0.1:7890）", default=True
+        ):
+            from .. import proxyenv
+            t.backup_file(proxyenv.target_bashrc())
+            proxyenv.write()
 
         # 局域网代理需放行防火墙端口，否则其他主机连不上
         if cfg["lan_proxy"] and menu.confirm("更新防火墙放行 7890 端口？", default=True):
@@ -44,8 +57,15 @@ def run() -> None:
         # 3. 增强配置（可选）——在生成订阅前配置，使首次转换即包含地区组/分流
         customize.configure_enhancements()
 
-        # 4. 添加首个订阅
-        name, url, source_type, cust = common.ask_new_subscription()
+        # 4. 添加首个订阅（链接留空=暂不配置，直接结束初始化）
+        info = common.ask_new_subscription()
+        if info is None:
+            shell.info(
+                "已跳过订阅与服务注册，结束初始化。内核/规则已下载、设置已保存，"
+                "稍后可在主菜单「订阅 → 添加订阅」补配并启动服务。"
+            )
+            return  # 正常返回 → 事务提交，保留步骤 1-3 成果
+        name, url, source_type, cust = info
         t.backup_file(paths.CONFIG_FILE)
         t.backup_file(paths.ACTIVE_FILE)
         sub = manager.add(name, url, source_type, customize_flag=cust, set_active=True)

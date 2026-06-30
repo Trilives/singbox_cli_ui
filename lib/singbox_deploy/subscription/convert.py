@@ -412,6 +412,13 @@ def convert_proxy(proxy: dict[str, Any], used_tags: set[str]) -> tuple[dict[str,
 # 配置各部分
 # --------------------------------------------------------------------------- #
 def build_inbounds(c: CustomConfig) -> list[dict[str, Any]]:
+    proxy_listen = "0.0.0.0" if getattr(c, "lan_proxy", False) else "127.0.0.1"
+    mixed_inbound: dict[str, Any] = {
+        "type": "mixed", "tag": "mixed-in", "listen": proxy_listen, "listen_port": 7890,
+    }
+    # TUN 关闭时仅保留 mixed 入站（纯代理模式，需各 App 自行设置代理）
+    if not getattr(c, "enable_tun", True):
+        return [mixed_inbound]
     tun_inbound: dict[str, Any] = {
         "type": "tun", "tag": "tun-in", "interface_name": "singbox",
         "address": ["172.19.0.1/30"], "mtu": 1400, "auto_route": True,
@@ -420,11 +427,7 @@ def build_inbounds(c: CustomConfig) -> list[dict[str, Any]]:
     }
     if c.tun_exclude_uids:
         tun_inbound["exclude_uid"] = c.tun_exclude_uids
-    proxy_listen = "0.0.0.0" if getattr(c, "lan_proxy", False) else "127.0.0.1"
-    return [
-        tun_inbound,
-        {"type": "mixed", "tag": "mixed-in", "listen": proxy_listen, "listen_port": 7890},
-    ]
+    return [tun_inbound, mixed_inbound]
 
 
 def build_dns(c: CustomConfig) -> dict[str, Any]:

@@ -57,5 +57,7 @@ def _artifacts() -> None:
 
 
 def _state() -> None:
+    from .. import proxyenv
+    proxyenv.remove()  # 清掉写入 bashrc 的代理变量，避免残留指向失效代理
     shutil.rmtree(paths.STATE_DIR, ignore_errors=True)
     shell.ok("已清理 state/（所有订阅与配置）。")
