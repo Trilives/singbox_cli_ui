@@ -188,6 +188,33 @@ _SCALAR_FIELDS = {
 }
 
 
+# 编辑项展示顺序：常用项（TUN / 局域网 / 地区组 / 下载&转换后端）在前，
+# 高级分流字段（域名后缀清单 / DNS / 排除网段等）在后。
+_FIELD_ORDER = [
+    "enable_tun",
+    "lan_proxy",
+    "lan_panel",
+    "generate_sg_groups",
+    "generate_hk_groups",
+    "download_proxy",
+    "subconverter_backend",
+    "github_mirror",
+    "prefer_keywords",
+    "hk_prefer_keywords",
+    "default_outbound",
+    "direct_domain_suffixes",
+    "ai_domain_suffixes",
+    "streaming_domain_suffixes",
+    "local_bypass_domains",
+    "route_exclude_ip_cidrs",
+    "bypass_process_names",
+    "tun_exclude_uids",
+    "bootstrap_dns_server",
+    "bootstrap_dns_port",
+    "base64_local_fallback",
+]
+
+
 def _summary(cfg: dict[str, Any], key: str) -> str:
     v = cfg.get(key, DEFAULTS.get(key))
     if isinstance(v, list):
@@ -197,12 +224,16 @@ def _summary(cfg: dict[str, Any], key: str) -> str:
     return "未设置" if v in ("", None) else str(v)
 
 
+def _field_label(cfg: dict[str, Any], key: str) -> str:
+    if key in _LIST_FIELDS:
+        return f"{_LIST_FIELDS[key]}（{_summary(cfg, key)}）"
+    if key in _BOOL_FIELDS:
+        return f"{_BOOL_FIELDS[key]}：{_summary(cfg, key)}"
+    return f"{_SCALAR_FIELDS[key]}：{_summary(cfg, key)}"
+
+
 def _edit_labels(cfg: dict[str, Any]) -> list[str]:
-    return (
-        [f"{_LIST_FIELDS[k]}（{_summary(cfg, k)}）" for k in _LIST_FIELDS]
-        + [f"{_BOOL_FIELDS[k]}：{_summary(cfg, k)}" for k in _BOOL_FIELDS]
-        + [f"{_SCALAR_FIELDS[k]}：{_summary(cfg, k)}" for k in _SCALAR_FIELDS]
-    )
+    return [_field_label(cfg, k) for k in _FIELD_ORDER]
 
 
 def edit() -> bool:
@@ -213,7 +244,7 @@ def edit() -> bool:
     original = load()
     cfg = json.loads(json.dumps(original))  # 工作副本
     changed = False
-    field_keys = list(_LIST_FIELDS) + list(_BOOL_FIELDS) + list(_SCALAR_FIELDS)
+    field_keys = _FIELD_ORDER
     while True:
         try:
             idx = menu.select(

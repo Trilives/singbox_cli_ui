@@ -90,6 +90,12 @@ def _subscriptions() -> None:
             continue
 
 
+def _maybe_node_select() -> None:
+    """订阅链接变化后，提示是否进入「切换 / 固定节点」（主菜单第③项）。"""
+    if menu.confirm("订阅已更新，是否现在切换 / 固定节点？", default=False):
+        _node_select()
+
+
 def _sub_add() -> None:
     info = common.ask_new_subscription()
     if info is None:
@@ -98,6 +104,8 @@ def _sub_add() -> None:
     name, url, stype, cust = info
     set_active = manager.get_active() is None or menu.confirm("设为生效订阅？", default=True)
     manager.add(name, url, stype, customize_flag=cust, set_active=set_active)
+    if set_active:
+        _maybe_node_select()
 
 
 def _pick_sub(prompt: str) -> str | None:
@@ -113,12 +121,16 @@ def _sub_switch() -> None:
     name = _pick_sub("切换到哪个订阅")
     if name:
         manager.switch(name)
+        _maybe_node_select()
 
 
 def _sub_refresh() -> None:
     name = _pick_sub("刷新哪个订阅")
     if name:
+        active = manager.get_active()
         manager.refresh(name)
+        if active and active.name == name:
+            _maybe_node_select()
 
 
 def _sub_rename() -> None:

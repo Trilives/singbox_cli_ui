@@ -123,20 +123,45 @@ def select(
         sys.stdout.flush()
 
 
+def _max_visible_rows() -> int:
+    """可见选项行数：按终端高度自适应，预留边框/页脚/滚动提示并留底部余白。"""
+    import shutil
+    return max(5, shutil.get_terminal_size((80, 24)).lines - 8)
+
+
+def _scroll_top(n: int, idx: int, visible: int) -> int:
+    """无状态地算出滚动窗口起点，使选中项尽量居中且不越界。"""
+    if n <= visible:
+        return 0
+    return max(0, min(idx - visible // 2, n - visible))
+
+
 def _build_select(title: str, options: Sequence[str], idx: int, footer: str) -> list[str]:
-    visibles = [f"  ❯ {_num(i)} {opt} " for i, opt in enumerate(options)]
+    """渲染选择框；选项多于一屏时滑动显示，仅展示选中项附近的窗口。"""
+    n = len(options)
+    visible = min(_max_visible_rows(), n)
+    top = _scroll_top(n, idx, visible)
+    end = top + visible
+    window = range(top, end)
+    up_hint = f"  ▲ 上方还有 {top} 项" if top > 0 else ""
+    down_hint = f"  ▼ 下方还有 {n - end} 项" if end < n else ""
+
     label = f"─ {title} "
-    w = max([disp_width(label)] + [disp_width(v) for v in visibles] + [disp_width(footer) + 2]) + 2
-    rows = ["┌" + label + "─" * (w - disp_width(label)) + "┐", "│" + " " * w + "│"]
-    for i, opt in enumerate(options):
+    body = [f"  ❯ {_num(i)} {options[i]} " for i in window]
+    w = max(
+        [disp_width(label), disp_width(footer) + 2,
+         disp_width(up_hint), disp_width(down_hint)]
+        + [disp_width(v) for v in body]
+    ) + 2
+
+    rows = ["┌" + label + "─" * (w - disp_width(label)) + "┐"]
+    rows.append("│" + _DIM + _row_pad(up_hint, w) + _RESET + "│")
+    for i in window:
         cursor = "❯" if i == idx else " "
-        text = f"  {cursor} {_num(i)} {opt} "
-        if i == idx:
-            text = _CYAN + _BOLD + _row_pad(text, w) + _RESET
-        else:
-            text = _row_pad(text, w)
+        text = f"  {cursor} {_num(i)} {options[i]} "
+        text = _CYAN + _BOLD + _row_pad(text, w) + _RESET if i == idx else _row_pad(text, w)
         rows.append("│" + text + "│")
-    rows.append("│" + " " * w + "│")
+    rows.append("│" + _DIM + _row_pad(down_hint, w) + _RESET + "│")
     rows.append("│" + _DIM + _row_pad("  " + footer, w) + _RESET + "│")
     rows.append("└" + "─" * w + "┘")
     return rows

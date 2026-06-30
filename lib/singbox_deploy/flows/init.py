@@ -80,6 +80,11 @@ def run() -> None:
         # 6. 可选增强：网络自愈 / 每周更新（阶段6 接入，先占位询问）
         _optional_extras(t, svc)
 
+        # 7. 订阅已配置，提示是否进入「切换 / 固定节点」
+        if menu.confirm("订阅已配置，是否现在切换 / 固定节点？", default=False):
+            from .. import node_select
+            node_select.select(str(paths.CONFIG_FILE))
+
         shell.ok("初始化完成。")
         _print_access_hint()
 
