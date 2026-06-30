@@ -102,6 +102,7 @@ def add(name: str, url: str, source_type: str, *, customize_flag: bool = True, s
 
 
 def refresh(name: str) -> Subscription:
+    """联网重新拉取订阅原文并重转（用于「刷新订阅」/ 定时更新）。"""
     sub = get(name)
     if sub is None:
         raise RuntimeError(f"订阅不存在: {name}")
@@ -112,8 +113,33 @@ def refresh(name: str) -> Subscription:
     return sub
 
 
+def rebuild(name: str) -> Subscription:
+    """基于本地已存订阅原文重新转换（不联网），用于应用定制层等本地改动。
+
+    订阅链接一般只在「刷新」时才重拉；改定制层只需把本地原文按新设置重转即可。
+    本地无原文（异常情况）时回退为联网刷新。
+    """
+    sub = get(name)
+    if sub is None:
+        raise RuntimeError(f"订阅不存在: {name}")
+    raw_file = _raw_file(sub)
+    if not raw_file.exists():
+        shell.warn("本地缺少订阅原文，改为联网刷新。")
+        return refresh(name)
+    sub.updated_at = _now()
+    shell.info(f"用本地原文重新生成「{sub.name}」（不重新拉取）…")
+    _convert_and_write(sub, raw_file.read_bytes(), customize.load())
+    if get_active() and get_active().name == name:  # type: ignore[union-attr]
+        _apply_active(name)
+    return sub
+
+
+def _raw_file(sub: Subscription):
+    return _dir(sub.name) / f"raw.{_EXT.get(sub.source_type, 'txt')}"
+
+
 def _build(sub: Subscription) -> None:
-    """拉取 → 转换 → 校验 → 写 raw/config/meta。"""
+    """拉取 → 写 raw → 转换写盘。"""
     cfg = customize.load()
     proxy = str(cfg.get("download_proxy") or "")
     shell.info(f"拉取订阅「{sub.name}」…")
@@ -124,8 +150,12 @@ def _build(sub: Subscription) -> None:
         shell.warn(mismatch)
 
     _dir(sub.name).mkdir(parents=True, exist_ok=True)
-    (_dir(sub.name) / f"raw.{_EXT.get(sub.source_type, 'txt')}").write_bytes(raw)
+    _raw_file(sub).write_bytes(raw)
+    _convert_and_write(sub, raw, cfg)
 
+
+def _convert_and_write(sub: Subscription, raw: bytes, cfg: dict) -> None:
+    """把订阅原文按当前 customize 转换为 sing-box 配置并写 config/meta。"""
     shell.info("转换为 sing-box 配置…")
     config, info = convert.to_singbox(raw, sub.source_type, sub.customize, cfg)
     sub.last_node_count = int(info.get("converted", info.get("auto_count", 0)) or 0)

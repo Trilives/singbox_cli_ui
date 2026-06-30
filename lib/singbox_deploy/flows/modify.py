@@ -137,8 +137,8 @@ def _sub_remove() -> None:
 def _edit_customize() -> None:
     changed = customize.edit()
     active = manager.get_active()
-    if changed and active and menu.confirm("立即重新生成生效订阅并重启？", default=True):
-        manager.refresh(active.name)
+    if changed and active and menu.confirm("立即用本地原文重新生成生效订阅并重启？（不重新拉取链接）", default=True):
+        manager.rebuild(active.name)
 
 
 def _node_select() -> None:
