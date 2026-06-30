@@ -89,3 +89,22 @@ python3 tests/test_convert.py     # 转换器对拍参考实现 + sing-box check
 ## 环境要求
 
 Linux + systemd；系统自带 `python3`（≥3.8）、`curl`、`tar`。TUN/服务需 root（自动 sudo）。
+
+## 第三方资产与致谢
+
+本项目**不打包任何二进制/UI/规则集**，全部在运行时从上游按需下载（见 `core.py`），
+各自保留其原始许可证，归属各自作者：
+
+| 资产 | 来源 | 用途 |
+| --- | --- | --- |
+| sing-box 内核 | [SagerNet/sing-box](https://github.com/SagerNet/sing-box)（GPL-3.0） | 代理核心 |
+| Web 面板 | [MetaCubeX/metacubexd](https://github.com/MetaCubeX/metacubexd) | Clash API 面板 |
+| CN 规则集 | [SagerNet/sing-geosite](https://github.com/SagerNet/sing-geosite)、[sing-geoip](https://github.com/SagerNet/sing-geoip) | 国内分流 |
+| 订阅转换后端 | 公共 [subconverter](https://github.com/asdlokj1qpi23/subconverter) 实例（默认 `sub.v1.mk`） | base64 来源解析 |
+
+> base64 来源默认经第三方 subconverter 解析，会向其发送订阅凭证；隐私敏感者请在
+> 「定制层」改用自建后端。详见 [DESIGN.md](DESIGN.md) 的隐私权衡说明。
+
+## 许可证
+
+本项目代码以 [MIT](LICENSE) 许可证发布。上述第三方资产不随本仓库分发，使用时受其各自许可证约束。
