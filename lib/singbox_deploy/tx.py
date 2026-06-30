@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Callable
 
@@ -33,6 +34,7 @@ class Transaction:
     def __init__(self, name: str):
         self.name = name
         self._undos: list[tuple[str, UndoFn]] = []
+        self._cleanups: list[UndoFn] = []
         self._committed = False
 
     # -- 登记回退动作 ------------------------------------------------------- #
@@ -59,6 +61,39 @@ class Transaction:
 
             self.add_undo(f"删除新建文件 {path}", _remove)
 
+    def snapshot(self, path: Path) -> None:
+        """快照文件或目录（含"原本不存在"），回退时整体还原。
+
+        适合一次性保护一批配置路径（如 config.json / active / customize.json /
+        subscriptions/），使会话内任意改动都能被 ESC 统一回退。仅快照配置类小文件，
+        勿用于内核/UI 等大产物。
+        """
+        path = Path(path)
+        existed = path.exists()
+        tmp_root = Path(tempfile.mkdtemp(prefix="sbtx-"))
+        self._cleanups.append(lambda: shutil.rmtree(tmp_root, ignore_errors=True))
+        if existed:
+            dest = tmp_root / path.name
+            if path.is_dir():
+                shutil.copytree(path, dest, symlinks=True)
+            else:
+                shutil.copy2(path, dest)
+
+        def _restore() -> None:
+            if path.is_dir():
+                shutil.rmtree(path, ignore_errors=True)
+            elif path.exists():
+                path.unlink()
+            if existed:
+                src = tmp_root / path.name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if src.is_dir():
+                    shutil.copytree(src, path, symlinks=True)
+                else:
+                    shutil.copy2(src, path)
+
+        self.add_undo(f"还原 {path}", _restore)
+
     def track_path(self, path: Path) -> None:
         """登记一个将被创建的文件/目录；回退时若原本不存在则删除。"""
         path = Path(path)
@@ -79,6 +114,7 @@ class Transaction:
     def commit(self) -> None:
         self._committed = True
         self._undos.clear()
+        self._run_cleanups()
 
     def rollback(self) -> None:
         if not self._undos:
@@ -93,10 +129,19 @@ class Transaction:
                 errors += 1
                 shell.error(f"  回退失败: {desc} ({exc})")
         self._undos.clear()
+        self._run_cleanups()
         if errors:
             shell.error(f"回退完成，但有 {errors} 项失败，请手动检查。")
         else:
             shell.ok("已回退到操作前状态。")
+
+    def _run_cleanups(self) -> None:
+        for fn in self._cleanups:
+            try:
+                fn()
+            except Exception:  # noqa: BLE001 - 清理失败无所谓
+                pass
+        self._cleanups.clear()
 
     # -- 上下文管理 -------------------------------------------------------- #
     def __enter__(self) -> "Transaction":

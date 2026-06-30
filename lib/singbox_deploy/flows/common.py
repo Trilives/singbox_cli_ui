@@ -13,6 +13,22 @@ _SOURCE_OPTIONS = [
 _SOURCE_TYPES = ["clash", "singbox", "base64"]
 
 
+def strip_scheme(proxy: str) -> str:
+    """去掉 http:// / https:// 前缀，便于以 IP:端口 形式回显默认值。"""
+    p = proxy.strip()
+    return p.split("://", 1)[1] if "://" in p else p
+
+
+def normalize_proxy(raw: str) -> str:
+    """把用户输入的代理归一化为可用 URL：空→空；含 scheme 原样；否则补 http://。"""
+    p = raw.strip()
+    if not p:
+        return ""
+    if "://" in p:
+        return p
+    return "http://" + p
+
+
 def ask_new_subscription() -> tuple[str, str, str, bool]:
     """交互收集新订阅信息：返回 (name, url, source_type, customize_flag)。
 

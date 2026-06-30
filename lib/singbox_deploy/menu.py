@@ -16,10 +16,10 @@ import sys
 from typing import Sequence
 
 from . import keys, shell
-from .errors import Cancelled
+from .errors import Cancelled, SaveExit
 from .keys import disp_width, read_line
 
-__all__ = ["Cancelled", "select", "multiselect", "ask", "confirm"]
+__all__ = ["Cancelled", "SaveExit", "select", "multiselect", "ask", "confirm"]
 
 # ANSI
 _RESET = "\033[0m"
@@ -69,18 +69,39 @@ class _Painter:
 # --------------------------------------------------------------------------- #
 # select
 # --------------------------------------------------------------------------- #
-def select(title: str, options: Sequence[str], *, allow_back: bool = True, back_label: str = "返回") -> int:
+def select(
+    title: str,
+    options: Sequence[str],
+    *,
+    allow_back: bool = True,
+    back_label: str = "返回",
+    save_label: str | None = None,
+) -> int:
+    """返回选中项下标。
+
+    save_label 不为空时，列表末尾追加一个「保存并退出」项；选中它抛 SaveExit，
+    由调用方据此提交并退出（ESC 仍抛 Cancelled 用于回退）。
+    """
+    opts = list(options)
+    save_idx = None
+    if save_label:
+        save_idx = len(opts)
+        opts.append("💾 " + save_label)
+
     if not _use_tui():
-        return _select_plain(title, options, allow_back=allow_back, back_label=back_label)
+        idx = _select_plain(title, opts, allow_back=allow_back, back_label=back_label)
+        if idx == save_idx:
+            raise SaveExit()
+        return idx
 
     idx = 0
-    n = len(options)
+    n = len(opts)
     footer = f"↑/↓ 选择   ⏎ 确认   esc {back_label}"
     painter = _Painter()
     sys.stdout.write(_HIDE)
     try:
         while True:
-            rows = _build_select(title, options, idx, footer)
+            rows = _build_select(title, opts, idx, footer)
             painter.draw(rows)
             k = keys.read_key()
             if k == keys.UP:
@@ -88,6 +109,8 @@ def select(title: str, options: Sequence[str], *, allow_back: bool = True, back_
             elif k == keys.DOWN:
                 idx = (idx + 1) % n
             elif k == keys.ENTER:
+                if idx == save_idx:
+                    raise SaveExit()
                 return idx
             elif k == keys.ESC:
                 if allow_back:

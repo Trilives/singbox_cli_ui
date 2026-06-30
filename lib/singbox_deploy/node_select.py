@@ -8,13 +8,14 @@
 from __future__ import annotations
 
 import json
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from . import menu, paths, service, shell
+from . import keys, menu, paths, service, shell
 from .subscription import manager
 
 GROUP_TYPES = {"selector", "urltest"}
@@ -125,8 +126,27 @@ def _measure(api: "tuple[str, dict]", names: "list[str]") -> "dict[str, int | No
     base, headers = api
     if not names:
         return {}
-    with ThreadPoolExecutor(max_workers=min(16, len(names))) as ex:
-        return dict(zip(names, ex.map(lambda n: _api_delay(base, headers, n), names)))
+    total = len(names)
+    tty = keys.interactive_tty()
+    if not tty:
+        shell.info(f"测速中（{total} 个节点）…")
+    results: dict[str, "int | None"] = {}
+    done = 0
+    with ThreadPoolExecutor(max_workers=min(16, total)) as ex:
+        futures = {ex.submit(_api_delay, base, headers, n): n for n in names}
+        for fut in as_completed(futures):
+            name = futures[fut]
+            results[name] = fut.result()
+            done += 1
+            if tty:
+                sys.stdout.write(f"\r\033[K  测速中… {done}/{total}")
+                sys.stdout.flush()
+    if tty:
+        sys.stdout.write("\r\033[K")
+        sys.stdout.flush()
+    ok = sum(1 for v in results.values() if v is not None)
+    shell.ok(f"测速完成：{ok}/{total} 可用")
+    return results
 
 
 def _fmt_delay(ms: "int | None") -> str:

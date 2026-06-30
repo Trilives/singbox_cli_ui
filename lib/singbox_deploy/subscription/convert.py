@@ -420,9 +420,10 @@ def build_inbounds(c: CustomConfig) -> list[dict[str, Any]]:
     }
     if c.tun_exclude_uids:
         tun_inbound["exclude_uid"] = c.tun_exclude_uids
+    proxy_listen = "0.0.0.0" if getattr(c, "lan_proxy", False) else "127.0.0.1"
     return [
         tun_inbound,
-        {"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 7890},
+        {"type": "mixed", "tag": "mixed-in", "listen": proxy_listen, "listen_port": 7890},
     ]
 
 

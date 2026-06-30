@@ -57,6 +57,7 @@ DEFAULTS: dict[str, Any] = {
     "bypass_process_names": BYPASS_PROCESS_NAMES,
     "tun_exclude_uids": [],
     "lan_panel": False,
+    "lan_proxy": False,
     "bootstrap_dns_server": DEFAULT_BOOTSTRAP_DNS_SERVER,
     "bootstrap_dns_port": DEFAULT_BOOTSTRAP_DNS_PORT,
     # 增强：地区组
@@ -86,6 +87,7 @@ class CustomConfig:
     bypass_process_names: list[str]
     tun_exclude_uids: list[int]
     lan_panel: bool
+    lan_proxy: bool
     bootstrap_dns_server: str | None
     bootstrap_dns_port: int
     prefer_keywords: list[str] = field(default_factory=lambda: list(DEFAULT_PREFER_KEYWORDS))
@@ -107,6 +109,7 @@ def to_custom_config(cfg: dict[str, Any]) -> CustomConfig:
         bypass_process_names=list(g("bypass_process_names")),
         tun_exclude_uids=[int(x) for x in g("tun_exclude_uids")],
         lan_panel=bool(g("lan_panel")),
+        lan_proxy=bool(g("lan_proxy")),
         bootstrap_dns_server=g("bootstrap_dns_server"),
         bootstrap_dns_port=int(g("bootstrap_dns_port")),
         prefer_keywords=list(g("prefer_keywords")),
@@ -166,6 +169,7 @@ _LIST_FIELDS = {
 }
 _BOOL_FIELDS = {
     "lan_panel": "LAN 面板暴露",
+    "lan_proxy": "局域网代理（其他主机可用本机代理）",
     "generate_sg_groups": "生成新加坡地区组",
     "generate_hk_groups": "生成香港地区组",
     "base64_local_fallback": "base64 应急本地解析",
@@ -189,21 +193,41 @@ def _summary(cfg: dict[str, Any], key: str) -> str:
     return "未设置" if v in ("", None) else str(v)
 
 
-def edit() -> bool:
-    """交互式编辑 customize.json。返回是否有改动。"""
-    cfg = load()
-    changed = False
-    field_keys = list(_LIST_FIELDS) + list(_BOOL_FIELDS) + list(_SCALAR_FIELDS)
-    labels = (
+def _edit_labels(cfg: dict[str, Any]) -> list[str]:
+    return (
         [f"{_LIST_FIELDS[k]}（{_summary(cfg, k)}）" for k in _LIST_FIELDS]
         + [f"{_BOOL_FIELDS[k]}：{_summary(cfg, k)}" for k in _BOOL_FIELDS]
         + [f"{_SCALAR_FIELDS[k]}：{_summary(cfg, k)}" for k in _SCALAR_FIELDS]
     )
+
+
+def edit() -> bool:
+    """交互式编辑 customize.json（缓冲式）。
+
+    「保存并退出」才写盘；ESC = 放弃本次全部改动。返回是否实际保存了改动。
+    """
+    original = load()
+    cfg = json.loads(json.dumps(original))  # 工作副本
+    changed = False
+    field_keys = list(_LIST_FIELDS) + list(_BOOL_FIELDS) + list(_SCALAR_FIELDS)
     while True:
         try:
-            idx = menu.select("编辑定制层", labels, back_label="返回")
+            idx = menu.select(
+                "编辑定制层", _edit_labels(cfg),
+                back_label="放弃修改并返回", save_label="保存并退出",
+            )
+        except menu.SaveExit:
+            if not changed:
+                shell.info("未做修改。")
+                return False
+            save(cfg)
+            shell.ok("定制层已保存。")
+            _sync_lan_proxy_firewall(original, cfg)
+            return True
         except menu.Cancelled:
-            break
+            if changed:
+                shell.warn("已放弃本次修改（未写盘）。")
+            return False
         key = field_keys[idx]
         if key in _LIST_FIELDS:
             changed |= _edit_list(cfg, key, _LIST_FIELDS[key])
@@ -212,16 +236,20 @@ def edit() -> bool:
             changed = True
         else:
             changed |= _edit_scalar(cfg, key, _SCALAR_FIELDS[key])
-        # 刷新标签摘要
-        labels = (
-            [f"{_LIST_FIELDS[k]}（{_summary(cfg, k)}）" for k in _LIST_FIELDS]
-            + [f"{_BOOL_FIELDS[k]}：{_summary(cfg, k)}" for k in _BOOL_FIELDS]
-            + [f"{_SCALAR_FIELDS[k]}：{_summary(cfg, k)}" for k in _SCALAR_FIELDS]
-        )
-    if changed:
-        save(cfg)
-        shell.ok("定制层已保存。")
-    return changed
+
+
+def _sync_lan_proxy_firewall(original: dict[str, Any], cfg: dict[str, Any]) -> None:
+    """lan_proxy 开关变化时，按需更新防火墙放行 7890 端口。"""
+    before, after = bool(original.get("lan_proxy")), bool(cfg.get("lan_proxy"))
+    if before == after:
+        return
+    from . import firewall
+    if after:
+        if menu.confirm("已开启局域网代理，更新防火墙放行 7890 端口？", default=True):
+            firewall.allow(firewall.PROXY_PORT)
+    else:
+        if menu.confirm("已关闭局域网代理，撤销防火墙放行 7890 端口？", default=True):
+            firewall.revoke(firewall.PROXY_PORT)
 
 
 def _edit_list(cfg: dict[str, Any], key: str, label: str) -> bool:
