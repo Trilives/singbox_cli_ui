@@ -1,0 +1,5 @@
+{
+  "extraPaths": ["lib"],
+  "include": ["lib", "tests"],
+  "pythonVersion": "3.8"
+}
