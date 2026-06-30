@@ -79,29 +79,23 @@ def select(
 ) -> int:
     """返回选中项下标。
 
-    save_label 不为空时，列表末尾追加一个「保存并退出」项；选中它抛 SaveExit，
-    由调用方据此提交并退出（ESC 仍抛 Cancelled 用于回退）。
+    save_label 不为空时，提供一个常驻基础按键 `s`（footer 提示）：按下抛 SaveExit，
+    由调用方据此提交并退出（ESC 仍抛 Cancelled 用于回退）。它是按键而非列表项。
     """
-    opts = list(options)
-    save_idx = None
-    if save_label:
-        save_idx = len(opts)
-        opts.append("💾 " + save_label)
-
     if not _use_tui():
-        idx = _select_plain(title, opts, allow_back=allow_back, back_label=back_label)
-        if idx == save_idx:
-            raise SaveExit()
-        return idx
+        return _select_plain(title, options, allow_back=allow_back,
+                             back_label=back_label, save_label=save_label)
 
     idx = 0
-    n = len(opts)
+    n = len(options)
     footer = f"↑/↓ 选择   ⏎ 确认   esc {back_label}"
+    if save_label:
+        footer += f"   s {save_label}"
     painter = _Painter()
     sys.stdout.write(_HIDE)
     try:
         while True:
-            rows = _build_select(title, opts, idx, footer)
+            rows = _build_select(title, options, idx, footer)
             painter.draw(rows)
             k = keys.read_key()
             if k == keys.UP:
@@ -109,12 +103,12 @@ def select(
             elif k == keys.DOWN:
                 idx = (idx + 1) % n
             elif k == keys.ENTER:
-                if idx == save_idx:
-                    raise SaveExit()
                 return idx
             elif k == keys.ESC:
                 if allow_back:
                     raise Cancelled()
+            elif save_label and k in ("s", "S"):
+                raise SaveExit()
             elif k.isdigit():
                 j = int(k) - 1
                 if 0 <= j < n:
@@ -143,14 +137,18 @@ def _build_select(title: str, options: Sequence[str], idx: int, footer: str) -> 
     return rows
 
 
-def _select_plain(title, options, *, allow_back, back_label) -> int:
+def _select_plain(title, options, *, allow_back, back_label, save_label=None) -> int:
     shell.header(title)
     for i, opt in enumerate(options, 1):
         print(f"  {i}) {opt}")
+    if save_label:
+        print(f"  s) {save_label}")
     if allow_back:
         print(f"  0) {back_label}")
     while True:
         raw = read_line("请选择: ").strip()
+        if save_label and raw.lower() == "s":
+            raise SaveExit()
         if raw in ("", "0"):
             if allow_back:
                 raise Cancelled()

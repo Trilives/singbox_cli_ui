@@ -186,15 +186,7 @@ def select(config_path: str | None = None, group: str = "") -> None:
     if not buckets and not groups:
         raise RuntimeError(f"分组 '{group_tag}' 下没有可选项。")
 
-    # 第 0 步：可选先同步运行配置，使测速/切换对齐磁盘配置
-    if service.is_installed() and menu.confirm("先重启服务以同步运行配置（便于准确测速/切换）？", default=True):
-        try:
-            service.sync_and_restart()
-            import time
-            time.sleep(1.5)
-        except (RuntimeError, shell.CommandError) as exc:
-            shell.warn(f"同步失败：{exc}")
-
+    # 节点切换走 Clash API 热切换，无需预重启同步；直接连 API 实时测速/切换
     api = _clash_base(config)
     api_ok = bool(api and _api_reachable(*api))
     shell.info("已连上 Clash API，列表将实时测速。" if api_ok else "Clash API 不可达，跳过测速。")
