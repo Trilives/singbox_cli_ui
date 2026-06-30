@@ -45,6 +45,7 @@ def disp_width(s: str) -> int:
 # 逻辑按键常量
 UP, DOWN, LEFT, RIGHT = "UP", "DOWN", "LEFT", "RIGHT"
 ENTER, ESC, SPACE, BACKSPACE = "ENTER", "ESC", "SPACE", "BACKSPACE"
+ROLLBACK = "ROLLBACK"  # 组合键 Ctrl-R：回退并退出
 
 _ARROW = {"[A": UP, "[B": DOWN, "[C": RIGHT, "[D": LEFT, "OA": UP, "OB": DOWN}
 
@@ -67,6 +68,8 @@ def read_key() -> str:
             return SPACE
         if o in (127, 8):
             return BACKSPACE
+        if o == 18:  # Ctrl-R：回退并退出（组合键）
+            return ROLLBACK
         if o == 27:  # ESC 或方向键转义序列
             r, _, _ = _select.select([fd], [], [], 0.05)
             if not r:

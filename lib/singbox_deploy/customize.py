@@ -214,7 +214,7 @@ def edit() -> bool:
         try:
             idx = menu.select(
                 "编辑定制层", _edit_labels(cfg),
-                back_label="放弃修改并返回", save_label="保存并退出",
+                back_label="放弃修改并退出", save_label="保存并退出",
             )
         except menu.SaveExit:
             if not changed:

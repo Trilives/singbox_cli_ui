@@ -79,8 +79,10 @@ def select(
 ) -> int:
     """返回选中项下标。
 
-    save_label 不为空时，提供一个常驻基础按键 `s`（footer 提示）：按下抛 SaveExit，
-    由调用方据此提交并退出（ESC 仍抛 Cancelled 用于回退）。它是按键而非列表项。
+    两种模式：
+    - 普通菜单（save_label=None）：esc = 返回（抛 Cancelled）。
+    - 会话边界菜单（save_label 给定）：esc = 保存并退出（抛 SaveExit，常用、顺手）；
+      组合键 Ctrl-R = 回退并退出（抛 Cancelled，少用、需慎重，避免误触丢改动）。
     """
     if not _use_tui():
         return _select_plain(title, options, allow_back=allow_back,
@@ -88,9 +90,10 @@ def select(
 
     idx = 0
     n = len(options)
-    footer = f"↑/↓ 选择   ⏎ 确认   esc {back_label}"
     if save_label:
-        footer += f"   s {save_label}"
+        footer = f"↑/↓ 选择   ⏎ 确认   esc {save_label}   ^R {back_label}"
+    else:
+        footer = f"↑/↓ 选择   ⏎ 确认   esc {back_label}"
     painter = _Painter()
     sys.stdout.write(_HIDE)
     try:
@@ -105,10 +108,12 @@ def select(
             elif k == keys.ENTER:
                 return idx
             elif k == keys.ESC:
+                if save_label:
+                    raise SaveExit()
                 if allow_back:
                     raise Cancelled()
-            elif save_label and k in ("s", "S"):
-                raise SaveExit()
+            elif save_label and k == keys.ROLLBACK:
+                raise Cancelled()
             elif k.isdigit():
                 j = int(k) - 1
                 if 0 <= j < n:
@@ -142,14 +147,17 @@ def _select_plain(title, options, *, allow_back, back_label, save_label=None) ->
     for i, opt in enumerate(options, 1):
         print(f"  {i}) {opt}")
     if save_label:
-        print(f"  s) {save_label}")
-    if allow_back:
+        print(f"  回车) {save_label}    r) {back_label}")
+    elif allow_back:
         print(f"  0) {back_label}")
     while True:
         raw = read_line("请选择: ").strip()
-        if save_label and raw.lower() == "s":
-            raise SaveExit()
-        if raw in ("", "0"):
+        if save_label:
+            if raw == "":          # 回车 = 保存并退出
+                raise SaveExit()
+            if raw.lower() == "r":  # r = 回退并退出
+                raise Cancelled()
+        elif raw in ("", "0"):
             if allow_back:
                 raise Cancelled()
             continue

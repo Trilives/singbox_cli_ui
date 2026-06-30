@@ -40,11 +40,11 @@ def run() -> None:
             try:
                 idx = menu.select(
                     "更改配置", _OPTIONS,
-                    back_label="放弃本次会话改动并返回", save_label="保存并退出",
+                    back_label="回退并退出", save_label="保存并退出",
                 )
             except menu.SaveExit:
-                return  # 正常返回 → 事务提交
-            # 主菜单 ESC：menu.Cancelled 透传到 __exit__ → 回退整个会话
+                return  # esc = 保存并退出 → 正常返回 → 事务提交
+            # 主菜单 Ctrl-R：menu.Cancelled 透传到 __exit__ → 回退整个会话
             try:
                 handlers[idx]()
             except menu.SaveExit:
@@ -80,11 +80,10 @@ def _subscriptions() -> None:
         try:
             act = menu.select(
                 "订阅操作", ["添加订阅", "切换生效订阅", "刷新订阅", "重命名", "删除订阅"],
-                back_label="返回上层", save_label="保存并退出",
+                back_label="返回上层",
             )
         except menu.Cancelled:
-            return  # 返回上层（改动仍在会话缓冲中）
-        # SaveExit 不在此捕获：透传到 run() → 提交并退出
+            return  # 返回上层菜单（改动仍在会话缓冲中，由主菜单 esc 提交 / Ctrl-R 回退）
         try:
             (_sub_add, _sub_switch, _sub_refresh, _sub_rename, _sub_remove)[act]()
         except menu.Cancelled:
