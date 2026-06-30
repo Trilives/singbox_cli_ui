@@ -24,7 +24,7 @@ def _timer_file() -> Path:
 
 
 def _exec_start() -> str:
-    return f"{paths.ROOT / 'deploy.sh'} update"
+    return f"{paths.ROOT / 'singbox.sh'} update"
 
 
 def _service_text() -> str:

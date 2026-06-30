@@ -94,9 +94,9 @@ def ensure_sudo(reason: str) -> None:
     from .errors import Cancelled
 
     if not _have("sudo"):
-        raise SystemExit("需要管理员权限，但未找到 sudo，请改用 `sudo ./deploy.sh` 启动。")
+        raise SystemExit("需要管理员权限，但未找到 sudo，请改用 `sudo ./singbox.sh` 启动。")
     info(f"{reason}需要管理员权限。")
-    info("提示：也可以直接用 `sudo ./deploy.sh` 启动，避免中途输入密码。")
+    info("提示：也可以直接用 `sudo ./singbox.sh` 启动，避免中途输入密码。")
     rc = subprocess.run(["sudo", "-v"]).returncode
     if rc != 0:
         raise Cancelled()

@@ -1,7 +1,7 @@
 """统一路径常量。
 
 所有运行期产物落在仓库根目录的 state/ 下（已 gitignore）。
-根目录由 deploy.sh 经环境变量 SINGBOX_DEPLOY_ROOT 传入；直接运行模块时回退到
+根目录由 singbox.sh 经环境变量 SINGBOX_DEPLOY_ROOT 传入；直接运行模块时回退到
 本文件相对位置推断（lib/singbox_deploy/paths.py → 上溯两级到仓库根）。
 """
 

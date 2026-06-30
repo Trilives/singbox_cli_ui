@@ -11,7 +11,7 @@
 
 核心诉求：
 
-- 根目录一个 `deploy.sh`，运行后进入交互式全流程。
+- 根目录一个 `singbox.sh`，运行后进入交互式全流程。
 - 第一层选择：**初始化 / 更改配置 / 卸载所有服务**。
 - 每个入口下有第二层子流程。
 - 订阅管理升级：支持 3 种订阅来源、命名保存、一键切换。
@@ -24,7 +24,7 @@
 
 | 决策项 | 选择 |
 | --- | --- |
-| 实现语言 | **Python 为主**，根目录 `deploy.sh` 仅做瘦入口 |
+| 实现语言 | **Python 为主**，根目录 `singbox.sh` 仅做瘦入口 |
 | 入口定位 | 瘦入口 + 模块化子模块，每个功能可单独调用 |
 | 转换引擎 | **本地解析为主 + subconverter 后端兜底** |
 | 定制注入 | **由用户每次选择**是否注入定制层（按订阅持久化） |
@@ -49,10 +49,10 @@
 环境依赖：Linux + systemd；系统自带 `python3`；`curl`、`tar`；TUN/服务需 root。
 subconverter 兜底为**可选**：未配置后端时，仅本地解析路径可用，转换失败则提示。
 
-**权限（sudo）策略**：不强制整脚本以 root 运行。普通用户启动 `./deploy.sh`，遇到需要
+**权限（sudo）策略**：不强制整脚本以 root 运行。普通用户启动 `./singbox.sh`，遇到需要
 root 的操作（systemd 注册/删除、写 `/etc/sing-box/`、NM 钩子、TUN 试跑）时，由
 `shell.run_root()` 自动加 `sudo` 执行；首次触发先 `sudo -v` 弹出密码输入（会话内缓存），
-并提示用户也可直接 `sudo ./deploy.sh` 启动以免中途输密码。sudo 授权失败按取消处理。
+并提示用户也可直接 `sudo ./singbox.sh` 启动以免中途输密码。sudo 授权失败按取消处理。
 
 **界面（TUI）选择**：采用 **stdlib 自绘 TUI**——方向键导航、反显高亮、边框盒子、颜色，
 观感接近 Claude Code / opencode，且**零第三方依赖**（基于 `keys.py` 的 termios 原始
@@ -65,7 +65,7 @@ root 的操作（systemd 注册/删除、写 `/etc/sing-box/`、NM 钩子、TUN 
 
 ```
 Singbox/
-├── deploy.sh                    # 瘦入口：检查 root/依赖/python → exec python3 -m singbox_deploy
+├── singbox.sh                    # 瘦入口：检查 root/依赖/python → exec python3 -m singbox_deploy
 ├── DESIGN.md                    # 本文档
 ├── README.md
 ├── .gitignore                   # 忽略 state/ 全部运行期产物
@@ -128,7 +128,7 @@ Singbox/
     └── customize.json           # 全局定制层配置（AI/流媒体/直连/TUN 等）
 ```
 
-> 设计取舍：用 `lib/singbox_deploy/` 作为可导入包，`deploy.sh` 内
+> 设计取舍：用 `lib/singbox_deploy/` 作为可导入包，`singbox.sh` 内
 > `PYTHONPATH=lib exec python3 -m singbox_deploy "$@"`，免安装即可运行；
 > 同时每个模块支持 `python3 -m singbox_deploy.core --help` 单独调用，满足"模块可单独跑"。
 
@@ -190,7 +190,7 @@ Singbox/
 
 ## 5. 交互流程（菜单树）
 
-运行 `./deploy.sh` →
+运行 `./singbox.sh` →
 
 ```
 sing-box 部署系统
@@ -410,7 +410,7 @@ def apply(base_config: dict, cfg: dict) -> dict  # 注入分流/TUN/DNS/clash_ap
 | 原文件 | 新归属 |
 | --- | --- |
 | `update_sing_box_core.sh` | `core.py` |
-| `update_and_redeploy.sh` | `flows/modify.py` 菜单项 4 |
+| `update_and_resingbox.sh` | `flows/modify.py` 菜单项 4 |
 | `download_sing_box_subscription.sh` | `subscription/convert.py`（subconverter 兜底分支）|
 | `Enhance/clash_nodes_to_singbox.py` | `subscription/convert.py` + `customize.py`（`yaml`→`yamlmini`）|
 | `Enhance/select_singbox_node.py` | `node_select.py` |
@@ -423,7 +423,7 @@ def apply(base_config: dict, cfg: dict) -> dict  # 注入分流/TUN/DNS/clash_ap
 
 ## 9. 实施阶段计划
 
-1. **骨架**：目录、`deploy.sh`、`paths.py`、`shell.py`、`menu.py`、`__main__.py`（菜单可跑通，子项打桩）。
+1. **骨架**：目录、`singbox.sh`、`paths.py`、`shell.py`、`menu.py`、`__main__.py`（菜单可跑通，子项打桩）。
 2. **核心资源**：`core.py`（内核/UI/规则集下载）。
 3. **订阅子系统**：`yamlmini`（先写 + 单测，拿真实 clash 订阅对比 PyYAML 输出）→ `fetch` + `detect` + `convert`（clash 路径移植旧 py，`yaml`→`yamlmini`）+ `manager`（命名/切换）。
 4. **定制层**：`customize.py`（迁移 customize.json + apply）。

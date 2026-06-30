@@ -1,6 +1,6 @@
 """主入口：交互式主菜单分发到三大流程。
 
-由 deploy.sh 经 `python3 -m singbox_deploy` 调起；也可带子命令直达，便于脚本化：
+由 singbox.sh 经 `python3 -m singbox_deploy` 调起；也可带子命令直达，便于脚本化：
     python3 -m singbox_deploy init|modify|uninstall
 """
 
@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     if argv:
         cmd = argv[0]
         if cmd in ("-h", "--help", "help"):
-            print("用法: deploy.sh [init|modify|uninstall]")
+            print("用法: singbox.sh [init|modify|uninstall|update]")
             print("不带参数则进入交互式主菜单。")
             return 0
         fn = _FLOWS.get(cmd)

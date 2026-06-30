@@ -1,21 +1,21 @@
 # sing-box CLI 部署系统
 
-在 Linux 上交互式部署 / 管理 sing-box 的命令行系统。一个入口 `./deploy.sh`，
+在 Linux 上交互式部署 / 管理 sing-box 的命令行系统。一个入口 `./singbox.sh`，
 全流程交互完成：**初始化 / 更改配置 / 卸载**。
 
 - **零第三方依赖**：只用系统自带 `python3` 标准库，不装 pip 包、不用虚拟环境
   （部署机常无代理，装包慢/易失败）。Clash YAML 用内置 `yamlmini` 解析（替代 PyYAML）。
 - **自绘 TUI**：方向键导航、反显高亮、边框盒子；非 TTY 自动回退编号菜单。
 - **随时可中止可回退**：任意步骤按 **ESC** 取消，已应用的改动自动回滚。
-- **按需提权**：普通用户启动，需要 root 时自动 `sudo`（也可 `sudo ./deploy.sh`）。
+- **按需提权**：普通用户启动，需要 root 时自动 `sudo`（也可 `sudo ./singbox.sh`）。
 
 设计细节见 [DESIGN.md](DESIGN.md)。
 
 ## 快速开始
 
 ```bash
-chmod +x deploy.sh
-./deploy.sh
+chmod +x singbox.sh
+./singbox.sh
 ```
 
 进入主菜单后选择「初始化」，按提示完成：
@@ -48,10 +48,10 @@ chmod +x deploy.sh
 ## 命令行（非交互，便于脚本/定时器）
 
 ```bash
-./deploy.sh init        # 初始化
-./deploy.sh modify      # 更改配置
-./deploy.sh uninstall   # 卸载
-./deploy.sh update      # 更新内核/UI/规则集并同步重启（每周定时器调用）
+./singbox.sh init        # 初始化
+./singbox.sh modify      # 更改配置
+./singbox.sh uninstall   # 卸载
+./singbox.sh update      # 更新内核/UI/规则集并同步重启（每周定时器调用）
 
 # 单模块调用
 python3 -m singbox_deploy.core --only ruleset --force
@@ -72,7 +72,7 @@ ssh -N -L 9090:127.0.0.1:9090 user@server
 
 ```
 Singbox/
-├── deploy.sh              # 瘦入口：环境检查 → 调起 Python CLI
+├── singbox.sh              # 瘦入口：环境检查 → 调起 Python CLI
 ├── lib/singbox_deploy/    # Python 主体（零依赖，模块可单独 -m 调用）
 ├── templates/             # systemd unit / NM 钩子 / healthcheck 模板
 ├── tests/                 # yamlmini / 转换器 对拍测试（需 PyYAML 仅测试用）
