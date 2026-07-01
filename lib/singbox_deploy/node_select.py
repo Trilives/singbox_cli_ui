@@ -201,14 +201,19 @@ def select(config_path: str | None = None, group: str = "") -> None:
     if groups:
         first_menu.append(("🧭 分组（自动测速 / 故障转移）", groups))
 
-    idx = menu.select("选择地区 / 分组", [f"{lbl}（{len(items)}）" for lbl, items in first_menu])
-    label, items = first_menu[idx]
+    while True:
+        idx = menu.select("选择地区 / 分组", [f"{lbl}（{len(items)}）" for lbl, items in first_menu])
+        label, items = first_menu[idx]
 
-    # 第二步：具体节点（带测速）
-    delays = _measure(api, items) if api_ok else {}  # type: ignore[arg-type]
-    labels = [f"{tag}   {_fmt_delay(delays.get(tag))}" if api_ok else tag for tag in items]
-    nidx = menu.select(label, labels)
-    selected = items[nidx]
+        # 第二步：具体节点（带测速）
+        delays = _measure(api, items) if api_ok else {}  # type: ignore[arg-type]
+        labels = [f"{tag}   {_fmt_delay(delays.get(tag))}" if api_ok else tag for tag in items]
+        try:
+            nidx = menu.select(label, labels)
+        except menu.Cancelled:
+            continue  # 返回上一级：重新选择地区/分组
+        selected = items[nidx]
+        break
 
     # 应用：写 state/config.json + 当前 active 订阅的 config.json（双写以跨重启持久）
     targets = [path]

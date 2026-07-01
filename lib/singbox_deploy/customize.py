@@ -72,6 +72,7 @@ DEFAULTS: dict[str, Any] = {
     "base64_local_fallback": False,
     "github_mirror": "",
     "download_proxy": "",
+    "github_token": "",
 }
 
 
@@ -185,6 +186,7 @@ _SCALAR_FIELDS = {
     "subconverter_backend": "subconverter 后端",
     "github_mirror": "GitHub 加速前缀",
     "download_proxy": "下载代理",
+    "github_token": "GitHub API Token（提升下载限速）",
 }
 
 
@@ -199,6 +201,7 @@ _FIELD_ORDER = [
     "download_proxy",
     "subconverter_backend",
     "github_mirror",
+    "github_token",
     "prefer_keywords",
     "hk_prefer_keywords",
     "default_outbound",
@@ -217,6 +220,8 @@ _FIELD_ORDER = [
 
 def _summary(cfg: dict[str, Any], key: str) -> str:
     v = cfg.get(key, DEFAULTS.get(key))
+    if key == "github_token":
+        return "已设置（隐藏）" if v else "未设置"
     if isinstance(v, list):
         return f"{len(v)} 条" if v else "空"
     if isinstance(v, bool):
@@ -325,6 +330,8 @@ def _edit_list(cfg: dict[str, Any], key: str, label: str) -> bool:
 
 
 def _edit_scalar(cfg: dict[str, Any], key: str, label: str) -> bool:
+    if key == "github_token":
+        return _edit_token(cfg)
     cur = str(cfg.get(key, "") or "")
     try:
         val = menu.ask(f"{label}（留空清除）", default=cur, allow_empty=True)
@@ -341,19 +348,41 @@ def _edit_scalar(cfg: dict[str, Any], key: str, label: str) -> bool:
     return True
 
 
+def _edit_token(cfg: dict[str, Any]) -> bool:
+    """GitHub Token 单独处理：输入不回显，且不把旧值明文回显到提示行。"""
+    import getpass
+    shell.info(f"当前：{_summary(cfg, 'github_token')}")
+    if not menu.confirm("输入新 Token？（否=保持不变；是后直接回车=清除）", default=False):
+        return False
+    try:
+        token = getpass.getpass("GitHub Token（输入不回显）: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    cfg["github_token"] = token
+    return True
+
+
 # --------------------------------------------------------------------------- #
 # 增强配置闸（初始化流程调用）
 # --------------------------------------------------------------------------- #
 def configure_enhancements() -> None:
-    """交互询问是否启用增强配置；启用则配置地区组等。"""
+    """交互询问是否启用增强配置：地区分组、AI/流媒体分流 分开询问、各自独立开关。"""
     cfg = load()
-    if not menu.confirm("是否启用增强配置（地区分组 / AI·流媒体分流 / 直连进程等）？", default=True):
-        # 关闭地区组，保持通用配置
+    _configure_region_groups(cfg)
+    _configure_ai_streaming(cfg)
+    save(cfg)
+    shell.ok("增强配置已保存。")
+    if menu.confirm("现在进一步细调分流/直连等字段？", default=False):
+        edit()
+
+
+def _configure_region_groups(cfg: dict[str, Any]) -> None:
+    """地区组（新加坡/香港 Auto+Fallback）：独立一问，与 AI/流媒体分流互不影响。"""
+    if not menu.confirm("是否启用地区分组（新加坡/香港自动测速 + 故障转移）？", default=True):
         cfg["generate_sg_groups"] = False
         cfg["generate_hk_groups"] = False
-        save(cfg)
         return
-    # 地区组
     if menu.confirm("启用「新加坡」地区组（SG-Auto/SG-Fallback）？", default=True):
         cfg["generate_sg_groups"] = True
         raw = menu.ask("新加坡匹配关键词（逗号分隔），留空=默认", default=",".join(cfg.get("prefer_keywords", [])))
@@ -366,10 +395,19 @@ def configure_enhancements() -> None:
         cfg["hk_prefer_keywords"] = [t.strip() for t in raw.split(",") if t.strip()]
     else:
         cfg["generate_hk_groups"] = False
-    save(cfg)
-    shell.ok("增强配置已保存。")
-    if menu.confirm("现在进一步细调分流/直连等字段？", default=False):
-        edit()
+
+
+def _configure_ai_streaming(cfg: dict[str, Any]) -> None:
+    """AI / 流媒体分流（独立分组，便于单独指定出口）：独立一问，与地区组互不影响。"""
+    if menu.confirm(
+        "是否启用 AI / 流媒体分流（ChatGPT·Claude·GitHub·Netflix·YouTube 等域名走独立分组）？",
+        default=True,
+    ):
+        cfg["ai_domain_suffixes"] = cfg.get("ai_domain_suffixes") or list(AI_DOMAIN_SUFFIXES)
+        cfg["streaming_domain_suffixes"] = cfg.get("streaming_domain_suffixes") or list(STREAMING_DOMAIN_SUFFIXES)
+    else:
+        cfg["ai_domain_suffixes"] = []
+        cfg["streaming_domain_suffixes"] = []
 
 
 # --------------------------------------------------------------------------- #

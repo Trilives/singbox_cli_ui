@@ -5,8 +5,9 @@
 - 解压用标准库 tarfile / zipfile（省掉 unzip 依赖）。
 - 下载仍用 curl 子进程：保留"代理优先→直连兜底"通道逻辑、重试、断点续传、完整性校验。
 
-下载相关设置（download_proxy / github_mirror）从 state/customize.json 读取，
-未配置时回退环境变量 / 直连。本模块不依赖 customize.py，直接读 JSON，避免循环依赖。
+下载相关设置（download_proxy / github_mirror / github_token）从 state/customize.json 读取，
+未配置时回退环境变量 / 直连；读设置直接读 JSON，不依赖 customize.py，避免加载整套默认值。
+GitHub Token 缺失时按需交互询问（仅 TTY 下），输入后经 customize.load/save 写回，供下次跳过。
 """
 
 from __future__ import annotations
@@ -67,7 +68,39 @@ def _settings() -> dict:
             data = {}
     proxy = data.get("download_proxy") or os.environ.get("DOWNLOAD_PROXY") or ""
     mirror = data.get("github_mirror") or ""
-    return {"download_proxy": proxy.strip(), "github_mirror": mirror.strip()}
+    token = data.get("github_token") or os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
+    return {
+        "download_proxy": proxy.strip(),
+        "github_mirror": mirror.strip(),
+        "github_token": token.strip(),
+    }
+
+
+def _prompt_github_token() -> str:
+    """交互询问是否输入 GitHub Token；输入则保存到 customize.json 供下次直接跳过。
+
+    非交互终端（如每周定时器的 `update` 子命令）直接跳过，不阻塞。
+    """
+    from . import keys, menu
+    if not keys.interactive_tty():
+        return ""
+    shell.info("GitHub API 未认证请求限速 60 次/小时，配置 Token 可提升到 5000 次/小时。")
+    if not menu.confirm("是否现在输入 GitHub Token？", default=False):
+        return ""
+    import getpass
+    try:
+        token = getpass.getpass("GitHub Token（输入不回显，留空取消）: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return ""
+    if not token:
+        return ""
+    from . import customize
+    cfg = customize.load()
+    cfg["github_token"] = token
+    customize.save(cfg)
+    shell.ok("Token 已保存到 state/customize.json，后续下载自动使用。")
+    return token
 
 
 def _mirror(url: str, mirror: str) -> str:
@@ -85,9 +118,11 @@ def _mirror(url: str, mirror: str) -> str:
 # curl 通道：代理优先 → 直连兜底
 # --------------------------------------------------------------------------- #
 class _Fetcher:
-    def __init__(self, proxy: str):
+    def __init__(self, proxy: str, token: str = ""):
         self.proxy = proxy
+        self.token = token
         self._direct_ok: bool | None = None
+        self._token_prompted = False
 
     def _direct_reachable(self) -> bool:
         if self._direct_ok is None:
@@ -129,11 +164,14 @@ class _Fetcher:
 
     def read_json(self, url: str) -> dict:
         """拉取 URL 文本并解析 JSON（用于 GitHub API）。"""
+        if "api.github.com" in url and not self._token_prompted:
+            self._token_prompted = True
+            if not self.token:
+                self.token = _prompt_github_token()
         with tempfile.NamedTemporaryFile("r+", suffix=".json", delete=True) as tf:
             extra = ["-sS", "-o", tf.name]
-            token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-            if token:
-                extra += ["-H", f"Authorization: Bearer {token}"]
+            if self.token:
+                extra += ["-H", f"Authorization: Bearer {self.token}"]
             extra.append(url)
             self.fetch(extra)
             tf.seek(0)
@@ -310,7 +348,7 @@ def _make_fetcher() -> _Fetcher:
     s = _settings()
     if s["download_proxy"]:
         shell.info(f"使用下载代理: {s['download_proxy']}")
-    return _Fetcher(s["download_proxy"])
+    return _Fetcher(s["download_proxy"], s["github_token"])
 
 
 def download_all(*, libc: str = "glibc", force: bool = False) -> str:

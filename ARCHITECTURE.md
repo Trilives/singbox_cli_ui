@@ -85,7 +85,8 @@ Singbox/
 - **开关**：`enable_tun` / `lan_panel` / `lan_proxy` / `generate_sg_groups` /
   `generate_hk_groups` / `base64_local_fallback`。
 - **标量**：`bootstrap_dns_server` / `bootstrap_dns_port` / `default_outbound` /
-  `subconverter_backend` / `github_mirror` / `download_proxy`。
+  `subconverter_backend` / `github_mirror` / `download_proxy` / `github_token`
+  （GitHub API 认证 Token，突破匿名 60 次/小时限速；输入不回显，编辑器里仅显示已设置/未设置）。
 
 编辑器为**缓冲式**：列出全部字段（常用项前置），`esc` 保存并退出才写盘，`^R` 放弃本次修改；
 字段多于一屏时菜单**滑动显示**（仅渲染选中项附近的窗口 + 上/下剩余条数提示）。
