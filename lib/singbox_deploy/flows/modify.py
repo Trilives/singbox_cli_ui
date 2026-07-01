@@ -36,11 +36,13 @@ def run() -> None:
             _subscriptions, _edit_customize, _node_select,
             _update_core, _service_settings, _resilience, _timer,
         ]
+        idx = 0
         while True:
             try:
                 idx = menu.select(
                     "更改配置", _OPTIONS,
                     back_label="回退并退出", save_label="保存并退出",
+                    initial=idx,
                 )
             except menu.SaveExit:
                 return  # esc = 保存并退出 → 正常返回 → 事务提交
@@ -65,6 +67,7 @@ def _resync_service() -> None:
 # 订阅管理
 # --------------------------------------------------------------------------- #
 def _subscriptions() -> None:
+    idx = 0
     while True:
         subs = manager.list_all()
         active = manager.get_active()
@@ -78,14 +81,14 @@ def _subscriptions() -> None:
         for line in listing:
             print("  • " + line)
         try:
-            act = menu.select(
+            idx = menu.select(
                 "订阅操作", ["添加订阅", "切换生效订阅", "刷新订阅", "重命名", "删除订阅"],
-                back_label="返回上层",
+                back_label="返回上层", initial=idx,
             )
         except menu.Cancelled:
             return  # 返回上层菜单（改动仍在会话缓冲中，由主菜单 esc 提交 / Ctrl-R 回退）
         try:
-            (_sub_add, _sub_switch, _sub_refresh, _sub_rename, _sub_remove)[act]()
+            (_sub_add, _sub_switch, _sub_refresh, _sub_rename, _sub_remove)[idx]()
         except menu.Cancelled:
             continue
 

@@ -250,11 +250,13 @@ def edit() -> bool:
     cfg = json.loads(json.dumps(original))  # 工作副本
     changed = False
     field_keys = _FIELD_ORDER
+    idx = 0
     while True:
         try:
             idx = menu.select(
                 "编辑定制层", _edit_labels(cfg),
                 back_label="放弃修改并退出", save_label="保存并退出",
+                initial=idx,
             )
         except menu.SaveExit:
             if not changed:
@@ -295,6 +297,7 @@ def _sync_lan_proxy_firewall(original: dict[str, Any], cfg: dict[str, Any]) -> N
 def _edit_list(cfg: dict[str, Any], key: str, label: str) -> bool:
     is_int = key == "tun_exclude_uids"
     changed = False
+    act = 0
     while True:
         items = list(cfg.get(key, []))
         shell.info(f"{label}：当前 {len(items)} 条" + (("：" + ", ".join(str(x) for x in items)) if items else ""))
@@ -302,6 +305,7 @@ def _edit_list(cfg: dict[str, Any], key: str, label: str) -> bool:
             act = menu.select(
                 f"编辑 · {label}",
                 ["添加一条", "删除一条", "批量粘贴替换（逗号/空格分隔）", "恢复默认", "清空"],
+                initial=act,
             )
         except menu.Cancelled:
             return changed

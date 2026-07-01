@@ -34,9 +34,10 @@ _FLOWS = {
 def _interactive() -> int:
     options = ["初始化（首次部署）", "更改配置", "网络测试", "卸载所有服务"]
     actions = [init.run, modify.run, nettest.run, uninstall.run]
+    idx = 0
     while True:
         try:
-            idx = select("sing-box 部署系统", options, back_label="退出")
+            idx = select("sing-box 部署系统", options, back_label="退出", initial=idx)
         except Cancelled:
             print("再见。")
             return 0

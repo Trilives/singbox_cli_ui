@@ -201,8 +201,9 @@ def select(config_path: str | None = None, group: str = "") -> None:
     if groups:
         first_menu.append(("🧭 分组（自动测速 / 故障转移）", groups))
 
+    idx = 0
     while True:
-        idx = menu.select("选择地区 / 分组", [f"{lbl}（{len(items)}）" for lbl, items in first_menu])
+        idx = menu.select("选择地区 / 分组", [f"{lbl}（{len(items)}）" for lbl, items in first_menu], initial=idx)
         label, items = first_menu[idx]
 
         # 第二步：具体节点（带测速）

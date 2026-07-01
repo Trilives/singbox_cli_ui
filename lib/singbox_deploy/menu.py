@@ -76,6 +76,7 @@ def select(
     allow_back: bool = True,
     back_label: str = "返回",
     save_label: str | None = None,
+    initial: int = 0,
 ) -> int:
     """返回选中项下标。
 
@@ -83,13 +84,16 @@ def select(
     - 普通菜单（save_label=None）：esc = 返回（抛 Cancelled）。
     - 会话边界菜单（save_label 给定）：esc = 保存并退出（抛 SaveExit，常用、顺手）；
       组合键 Ctrl-R = 回退并退出（抛 Cancelled，少用、需慎重，避免误触丢改动）。
+
+    `initial`：光标初始停留位置（越界则回退到 0）；配合调用方在循环里回填上次选中
+    下标，可实现"返回上级菜单时光标停在原处"，而不是每次都跳回第一项。
     """
     if not _use_tui():
         return _select_plain(title, options, allow_back=allow_back,
                              back_label=back_label, save_label=save_label)
 
-    idx = 0
     n = len(options)
+    idx = initial if 0 <= initial < n else 0
     if save_label:
         footer = f"↑/↓ 选择   ⏎ 确认   esc {save_label}   ^R {back_label}"
     else:
