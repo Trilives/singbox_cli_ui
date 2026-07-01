@@ -51,6 +51,30 @@ def _strip_ansi(s: str) -> str:
     return re.sub(r"\033\[[0-9;?]*[A-Za-z]", "", s)
 
 
+def _max_box_width() -> int:
+    """选择框内容区宽度上限：终端列数减去左右边框，避免框比终端还宽导致折行错位。"""
+    import shutil
+    return max(24, shutil.get_terminal_size((80, 24)).columns - 2)
+
+
+def _clip(s: str, w: int) -> str:
+    """按显示宽度截断到 w，超出部分用省略号收尾。"""
+    if w <= 0:
+        return ""
+    if disp_width(s) <= w:
+        return s
+    limit = max(0, w - 1)
+    out: list[str] = []
+    width = 0
+    for ch in s:
+        cw = disp_width(ch)
+        if width + cw > limit:
+            break
+        out.append(ch)
+        width += cw
+    return "".join(out) + "…"
+
+
 class _Painter:
     """在原地重绘多行内容。"""
 
@@ -152,21 +176,25 @@ def _build_select(title: str, options: Sequence[str], idx: int, footer: str) -> 
 
     label = f"─ {title} "
     body = [f"  ❯ {_num(i)} {options[i]} " for i in window]
-    w = max(
-        [disp_width(label), disp_width(footer) + 2,
-         disp_width(up_hint), disp_width(down_hint)]
-        + [disp_width(v) for v in body]
-    ) + 2
+    w = min(
+        max(
+            [disp_width(label), disp_width(footer) + 2,
+             disp_width(up_hint), disp_width(down_hint)]
+            + [disp_width(v) for v in body]
+        ) + 2,
+        _max_box_width(),
+    )
 
+    label = _clip(label, w)
     rows = ["┌" + label + "─" * (w - disp_width(label)) + "┐"]
-    rows.append("│" + _DIM + _row_pad(up_hint, w) + _RESET + "│")
+    rows.append("│" + _DIM + _row_pad(_clip(up_hint, w), w) + _RESET + "│")
     for i in window:
         cursor = "❯" if i == idx else " "
-        text = f"  {cursor} {_num(i)} {options[i]} "
+        text = _clip(f"  {cursor} {_num(i)} {options[i]} ", w)
         text = _CYAN + _BOLD + _row_pad(text, w) + _RESET if i == idx else _row_pad(text, w)
         rows.append("│" + text + "│")
-    rows.append("│" + _DIM + _row_pad(down_hint, w) + _RESET + "│")
-    rows.append("│" + _DIM + _row_pad("  " + footer, w) + _RESET + "│")
+    rows.append("│" + _DIM + _row_pad(_clip(down_hint, w), w) + _RESET + "│")
+    rows.append("│" + _DIM + _row_pad(_clip("  " + footer, w), w) + _RESET + "│")
     rows.append("└" + "─" * w + "┘")
     return rows
 
@@ -231,16 +259,20 @@ def multiselect(title: str, options: Sequence[str], *, default_on: Sequence[int]
 def _build_multi(title, options, idx, chosen, footer) -> list[str]:
     visibles = [f"  {'[x]' if i in chosen else '[ ]'} {opt} " for i, opt in enumerate(options)]
     label = f"─ {title} "
-    w = max([disp_width(label)] + [disp_width(v) for v in visibles] + [disp_width(footer) + 2]) + 2
+    w = min(
+        max([disp_width(label)] + [disp_width(v) for v in visibles] + [disp_width(footer) + 2]) + 2,
+        _max_box_width(),
+    )
+    label = _clip(label, w)
     rows = ["┌" + label + "─" * (w - disp_width(label)) + "┐", "│" + " " * w + "│"]
     for i, opt in enumerate(options):
         mark = "[x]" if i in chosen else "[ ]"
-        text = f"  {mark} {opt} "
+        text = _clip(f"  {mark} {opt} ", w)
         if i == idx:
             text = _CYAN + _BOLD + text + _RESET
         rows.append("│" + _row_pad(text, w) + "│")
     rows.append("│" + " " * w + "│")
-    rows.append("│" + _DIM + _row_pad("  " + footer, w) + _RESET + "│")
+    rows.append("│" + _DIM + _row_pad(_clip("  " + footer, w), w) + _RESET + "│")
     rows.append("└" + "─" * w + "┘")
     return rows
 

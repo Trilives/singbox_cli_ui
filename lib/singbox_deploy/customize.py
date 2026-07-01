@@ -143,10 +143,15 @@ def load() -> dict[str, Any]:
 
 
 def save(cfg: dict[str, Any]) -> None:
+    """写盘时收紧为 0600（仅本用户可读写）：文件里可能含 GitHub Token 明文。"""
     paths.ensure_state_dirs()
     paths.CUSTOMIZE_FILE.write_text(
         json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", "utf-8"
     )
+    try:
+        paths.CUSTOMIZE_FILE.chmod(0o600)
+    except OSError:
+        pass
 
 
 def ensure_exists() -> dict[str, Any]:
